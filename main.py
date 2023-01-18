@@ -47,9 +47,6 @@ def initial_stuff():
 
     # dict containing all the products
     products = {}
-    # Put products in dict
-    #    for nr, (product_id, product_name, product_cost, visible) in enumerate(items):
-    #        products[nr] = Product(product_id, product_name, product_cost, visible)
     for product_id, product_name, product_cost, visible in items:
         products[product_id] = Product(product_id, product_name, product_cost, visible)
 
