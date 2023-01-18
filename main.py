@@ -20,7 +20,7 @@ class Product:
         self.name = name
         self.cost = cost
         self.visible = visible
-        self.fancy_name = "{:<7}".format(self.name)
+        self.amount = 0
 
 
 class User:
@@ -31,17 +31,15 @@ class User:
         self.wallet = wallet
 
 
-queries = {"products": "SELECT * FROM products", "users": "SELECT * FROM users",
-           "transaction": "INSERT INTO transactions(user_id,product_id,transaction_cost,transaction_amount) VALUES ("
-                          "%s,%s,%s,%s)",
-           "subtraction": "UPDATE users SET user_wallet = %s WHERE id = %s",
-           "addition": "INSERT INTO register(user_id,register_amount,register_description) VALUES (%s,%s,%s)"}
+def database_connection():
+    db = pymysql.connect(host=host,
+                         user=username,
+                         password=password,
+                         database=database)
+    return db, db.cursor()
 
 
 def initial_stuff():
-    # create database connection
-    cursor = database_connection(username, password, host, database)
-
     # PRODUCT SECTION
     # Get products from database
     cursor.execute(queries["products"])
@@ -71,18 +69,76 @@ def initial_stuff():
     return products, users
 
 
-def database_connection(username, password, host, database):
-    db = pymysql.connect(host=host,
-                         user=username,
-                         password=password,
-                         database=database)
-    return db.cursor()
+def clean_session():
+    st.session_state.selected_products = defaultdict(lambda: 0)
+
+
+def read_badge():
+    id = str(reader.read_id())
+    return id
+
+
+def check_user(badge_id):
+    if users[badge_id].name:
+        return True
+    else:
+        return False
+
+
+def user_info(badge_id):
+    try:
+        st.write(users[badge_id].name)
+        for i in st.session_state.selected_products:
+            if st.session_state.selected_products[i] > 0:
+                st.write(
+                    f'{products[i].name} kosten zijn {st.session_state.selected_products[i] * products[i].cost}')
+
+    except KeyError:
+        st.write(f'Badge not recognized id is {id}')
+    time.sleep(5)
+    clean_session()
+
+
+def user_transaction(badge_id):
+    user = users[badge_id]
+    try:
+        for i in st.session_state.selected_products:
+            if st.session_state.selected_products[i] > 0:
+                product = products[i]
+                product.amount = st.session_state.selected_products[i]
+                update_wallet(user, -abs(product.amount * product.cost))
+                update_transactions(user, product)
+
+    except KeyError:
+        st.write(f'Badge not recognized id is {id}')
+    time.sleep(5)
+    clean_session()
+
+
+def update_wallet(user, money):
+    org_wallet = int(user.wallet)
+    # Calculate new wallet amount
+    new_wallet = org_wallet + int(money)
+
+    # Update db data
+    cursor.execute(queries["wallet"], (new_wallet, user.id))
+    st.write(f'from{org_wallet} to {new_wallet}')
+    db.commit()
+
+
+def update_transactions(user, product):
+    # Update db data
+    cursor.execute(queries["transaction"], (user.id,
+                                            product.id,
+                                            (product.cost * product.amount),
+                                            product.amount))
+    db.commit()
 
 
 def main_page():
     # creating session variables
     if 'selected_products' not in st.session_state:
-        st.session_state.selected_products = defaultdict(lambda: 0)
+        clean_session()
 
     with col1:
         st.title("Products")
@@ -94,21 +150,14 @@ def main_page():
     with col3:
         st.title("Checkout")
         if st.button('Cancel'):
-            st.session_state.selected_products = defaultdict(lambda: 0)
+            clean_session()
         if st.button('Checkout'):
             with st.spinner("scan badge"):
-                id = str(reader.read_id())
-                try:
-                    st.write(users[id].name)
-                    for i in st.session_state.selected_products:
-                        if st.session_state.selected_products[i] > 0:
-                            st.write(
-                                f'{products[i].name} kosten zijn {st.session_state.selected_products[i] * products[i].cost}')
-
-                except KeyError:
-                    st.write(f'Badge not recognized id is {id}')
-                time.sleep(5)
-                st.session_state.selected_products = defaultdict(lambda: 0)
+                badge_id = read_badge()
+                if check_user(badge_id):
+                    # temp for checks
+                    # st.write(user_info(badge_id))
+                    user_transaction(badge_id)
 
     # run through products and create buttons and session items
     for i in products:
@@ -121,6 +170,15 @@ def main_page():
                 st.write(
                     f'{products[i].name} amount: {st.session_state.selected_products[products[i].id]}')
 
+
+queries = {"products": "SELECT * FROM products", "users": "SELECT * FROM users",
+           "transaction": "INSERT INTO transactions(user_id,product_id,transaction_cost,transaction_amount) VALUES ("
+                          "%s,%s,%s,%s)",
+           "wallet": "UPDATE users SET user_wallet = %s WHERE user_id = %s",
+           "register": "INSERT INTO register(user_id,register_amount,register_description) VALUES (%s,%s,%s)"}
+
+# creating global access to db
+db, cursor = database_connection()
 
 if __name__ == '__main__':
     products, users = initial_stuff()
