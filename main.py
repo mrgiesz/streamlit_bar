@@ -1,7 +1,6 @@
 import streamlit as st
 import pymysql
 import time
-import RPi.GPIO as GPIO
 from mfrc522 import SimpleMFRC522
 from collections import defaultdict
 from config import username, password, host, database
@@ -10,6 +9,7 @@ from config import username, password, host, database
 reader = SimpleMFRC522()
 
 # setting page layout
+st.set_page_config(layout="wide")
 col1, col2, col3 = st.columns(3)
 
 
@@ -51,7 +51,6 @@ def initial_stuff():
         products[product_id] = Product(product_id, product_name, product_cost, visible)
 
     # USER SECTION
-
     # dict containing all the users
     users = {}
 
@@ -64,6 +63,21 @@ def initial_stuff():
         users[user_badge] = User(user_id, user_name, user_badge, user_wallet)
 
     return products, users
+
+
+def update_users():
+    # dict containing all the users
+    users = {}
+
+    # Get users details from SQL
+    cursor.execute(queries["users"])
+    items = cursor.fetchall()
+
+    # put userinfo in list
+    for user_id, user_name, user_badge, user_wallet in items:
+        users[user_badge] = User(user_id, user_name, user_badge, user_wallet)
+
+    return users
 
 
 def clean_session():
@@ -82,40 +96,24 @@ def check_user(badge_id):
         return False
 
 
-def user_info(badge_id):
-    try:
-        st.write(users[badge_id].name)
-        for i in st.session_state.selected_products:
-            if st.session_state.selected_products[i] > 0:
-                st.write(
-                    f'{products[i].name} kosten zijn {st.session_state.selected_products[i] * products[i].cost}')
-
-    except KeyError:
-        st.write(f'Badge not recognized id is {id}')
-    time.sleep(5)
-    clean_session()
-
-
 def user_transaction(badge_id):
-    user = users[badge_id]
-    try:
-        for i in st.session_state.selected_products:
-            if st.session_state.selected_products[i] > 0:
-                product = products[i]
-                product.amount = st.session_state.selected_products[i]
-                update_wallet(user, -abs(product.amount * product.cost))
-                update_transactions(user, product)
+    for i in st.session_state.selected_products:
+        if st.session_state.selected_products[i]:
+            users = update_users()
+            user = users[badge_id]
+            product = products[i]
+            product.amount = st.session_state.selected_products[i]
+            substr_wallet(user, product.amount * product.cost)
+            update_transactions(user, product)
 
-    except KeyError:
-        st.write(f'Badge not recognized id is {id}')
     time.sleep(5)
     clean_session()
 
 
-def update_wallet(user, money):
+def substr_wallet(user, cost):
     org_wallet = int(user.wallet)
     # Calculate new wallet amount
-    new_wallet = org_wallet + int(money)
+    new_wallet = org_wallet - cost
 
     # Update db data
     cursor.execute(queries["wallet"], (new_wallet, user.id))
@@ -142,30 +140,32 @@ def main_page():
 
     with col2:
         st.title("selected products")
-        # st.write(st.session_state)
 
     with col3:
         st.title("Checkout")
         if st.button('Cancel'):
             clean_session()
         if st.button('Checkout'):
+            # load spinner, and wait for badge to be scanned
             with st.spinner("scan badge"):
                 badge_id = read_badge()
+                # check if user exists in database
                 if check_user(badge_id):
-                    # temp for checks
-                    # st.write(user_info(badge_id))
+                    # start transaction
                     user_transaction(badge_id)
 
-    # run through products and create buttons and session items
+    # run through products
     for i in products:
+        # select only the visible products
         if products[i].visible:
-
             with col1:
+                # create buttons for all visible products
                 if st.button(products[i].name):
                     st.session_state.selected_products[products[i].id] += 1
             with col2:
-                st.write(
-                    f'{products[i].name} amount: {st.session_state.selected_products[products[i].id]}')
+               # show selected products in second column
+                if st.session_state.selected_products[products[i].id]:
+                    st.write(f'{products[i].name} amount: {st.session_state.selected_products[products[i].id]}')
 
 
 queries = {"products": "SELECT * FROM products", "users": "SELECT * FROM users",
