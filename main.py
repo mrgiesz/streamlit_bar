@@ -163,7 +163,7 @@ def main_page():
                 if st.button(products[i].name):
                     st.session_state.selected_products[products[i].id] += 1
             with col2:
-               # show selected products in second column
+                # show selected products in second column
                 if st.session_state.selected_products[products[i].id]:
                     st.write(f'{products[i].name} amount: {st.session_state.selected_products[products[i].id]}')
 
