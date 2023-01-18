@@ -100,7 +100,7 @@ def main_page():
                     billable_products = st.session_state.selected_products
                     for i in billable_products:
                         if billable_products[i] > 0:
-                            st.write(f'{products[i].name} kosten zijn {billable_products[i -1] * products[i].cost}')
+                            st.write(f'{products[i].name} kosten zijn {billable_products[i] * products[i].cost}')
                             st.write(i)
                             st.write(billable_products[i])
                             st.write(products)
