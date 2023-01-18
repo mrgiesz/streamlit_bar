@@ -41,6 +41,7 @@ queries = {"products": "SELECT * FROM products", "users": "SELECT * FROM users",
 def initial_stuff():
     # create database connection
     cursor = database_connection(username, password, host, database)
+
     # PRODUCT SECTION
     # Get products from database
     cursor.execute(queries["products"])
@@ -49,8 +50,10 @@ def initial_stuff():
     # dict containing all the products
     products = {}
     # Put products in dict
-    for nr, (product_id, product_name, product_cost, visible) in enumerate(items):
-        products[nr] = Product(product_id, product_name, product_cost, visible)
+    #    for nr, (product_id, product_name, product_cost, visible) in enumerate(items):
+    #        products[nr] = Product(product_id, product_name, product_cost, visible)
+    for product_id, product_name, product_cost, visible in items:
+        products[product_id] = Product(product_id, product_name, product_cost, visible)
 
     # USER SECTION
 
@@ -97,16 +100,15 @@ def main_page():
                 id = str(reader.read_id())
                 try:
                     st.write(users[id].name)
-                    billable_products = st.session_state.selected_products
-                    for i in billable_products:
-                        if billable_products[i] > 0:
-                            st.write(f'{products[i].name} kosten zijn {billable_products[i] * products[i].cost}')
-                            st.write(i)
-                            st.write(billable_products[i])
-                            st.write(products)
+                    for i in st.session_state.selected_products:
+                        if st.session_state.selected_products[i] > 0:
+                            st.write(
+                                f'{products[i].name} kosten zijn {st.session_state.selected_products[i] * products[i].cost}')
 
                 except KeyError:
                     st.write(f'Badge not recognized id is {id}')
+                time.sleep(5)
+                st.session_state.selected_products = defaultdict(lambda: 0)
 
     # run through products and create buttons and session items
     for i in products:
