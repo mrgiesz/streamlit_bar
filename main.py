@@ -104,8 +104,6 @@ def user_transaction(badge_id):
             product = products[i]
             product.amount = st.session_state.selected_products[i]
             substr_wallet(user, product.amount * product.cost)
-            update_transactions(user, product)
-
     time.sleep(5)
     clean_session()
 
@@ -117,7 +115,12 @@ def substr_wallet(user, cost):
 
     # Update db data
     cursor.execute(queries["wallet"], (new_wallet, user.id))
-    st.write(f'from{org_wallet} to {new_wallet}')
+
+    # print new balance
+    if new_wallet > 0:
+        st.success(f"{user.name}'s balance from {org_wallet*.01} to {new_wallet*.01}")
+    else:
+        st.error(f"{user.name}'s balance from {org_wallet*.01} to {new_wallet*.01}")
     db.commit()
 
 
