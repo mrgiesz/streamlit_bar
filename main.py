@@ -1,6 +1,5 @@
 import streamlit as st
 import pymysql
-import time
 from mfrc522 import SimpleMFRC522
 from collections import defaultdict
 from config import username, password, host, database
@@ -104,7 +103,6 @@ def user_transaction(badge_id):
             product = products[i]
             product.amount = st.session_state.selected_products[i]
             substr_wallet(user, product.amount * product.cost)
-    time.sleep(5)
     clean_session()
 
 
@@ -118,9 +116,9 @@ def substr_wallet(user, cost):
 
     # print new balance
     if new_wallet > 0:
-        st.success(f"{user.name}'s balance from {org_wallet*.01} to {new_wallet*.01}")
+        st.success(f"{user.name}'s balance from {org_wallet * .01} to {new_wallet * .01}")
     else:
-        st.error(f"{user.name}'s balance from {org_wallet*.01} to {new_wallet*.01}")
+        st.error(f"{user.name}'s balance from {org_wallet * .01} to {new_wallet * .01}")
     db.commit()
 
 
@@ -133,31 +131,14 @@ def update_transactions(user, product):
     db.commit()
 
 
-def main_page():
-    # creating session variables
-    if 'selected_products' not in st.session_state:
-        clean_session()
+def get_users_dict():
+    userdict = {}
+    for i in users:
+        userdict[users[i].name] = users[i].badge_uid
+    return userdict
 
-    with col1:
-        st.title("Products")
 
-    with col2:
-        st.title("selected products")
-
-    with col3:
-        st.title("Checkout")
-        if st.button('Cancel'):
-            clean_session()
-        if st.button('Checkout'):
-            # load spinner, and wait for badge to be scanned
-            with st.spinner("scan badge"):
-                badge_id = read_badge()
-                # check if user exists in database
-                if check_user(badge_id):
-                    # start transaction
-                    user_transaction(badge_id)
-
-    # run through products
+def product_page():
     for i in products:
         # select only the visible products
         if products[i].visible:
@@ -169,6 +150,40 @@ def main_page():
                 # show selected products in second column
                 if st.session_state.selected_products[products[i].id]:
                     st.write(f'{products[i].name} amount: {st.session_state.selected_products[products[i].id]}')
+
+
+def checkout_page():
+    with col3:
+        userdict = get_users_dict()
+        chosen_user = st.selectbox("select user", userdict.keys())
+        if st.button('Checkout'):
+            user_transaction(userdict[chosen_user])
+
+        if st.button('Cancel'):
+            clean_session()
+        if st.button('Scan NFC'):
+            # load spinner, and wait for badge to be scanned
+            with st.spinner("scan badge"):
+                badge_id = read_badge()
+                # check if user exists in database
+                if check_user(badge_id):
+                    # start transaction
+                    user_transaction(badge_id)
+
+
+def main_page():
+    # creating session variables
+    if 'selected_products' not in st.session_state:
+        clean_session()
+
+    with col1:
+        st.title("Products")
+
+    with col2:
+        st.title("Selected products")
+
+    with col3:
+        st.title("Checkout")
 
 
 queries = {"products": "SELECT * FROM products", "users": "SELECT * FROM users",
@@ -183,3 +198,5 @@ db, cursor = database_connection()
 if __name__ == '__main__':
     products, users = initial_stuff()
     main_page()
+    product_page()
+    checkout_page()
