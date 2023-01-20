@@ -1,5 +1,6 @@
 import streamlit as st
 import pymysql
+import time
 from mfrc522 import SimpleMFRC522
 from collections import defaultdict
 from config import username, password, host, database
@@ -113,13 +114,16 @@ def substr_wallet(user, cost):
 
     # Update db data
     cursor.execute(queries["wallet"], (new_wallet, user.id))
-
-    # print new balance
-    if new_wallet > 0:
-        st.success(f"{user.name}'s balance from {org_wallet * .01} to {new_wallet * .01}")
-    else:
-        st.error(f"{user.name}'s balance from {org_wallet * .01} to {new_wallet * .01}")
     db.commit()
+    # print new balance
+    placeholder = st.empty()
+
+    if new_wallet > 0:
+        placeholder.success(f"{user.name}'s balance from \u20ac {org_wallet * .01:.2f} to \u20ac {new_wallet * .01:.2f}")
+    else:
+        placeholder.error(f"{user.name}'s balance from \u20ac {org_wallet * .01:.2f} to \u20ac {new_wallet * .01:.2f}")
+    time.sleep(3)
+    placeholder.empty()
 
 
 def update_transactions(user, product):
@@ -155,9 +159,10 @@ def product_page():
 def checkout_page():
     with col3:
         userdict = get_users_dict()
-        chosen_user = st.selectbox("select user", userdict.keys())
-        if st.button('Checkout'):
-            user_transaction(userdict[chosen_user])
+        with st.expander('badge vergeten'): 
+            chosen_user = st.selectbox("select user", sorted(userdict.keys()))
+            if st.button('Checkout'):
+                user_transaction(userdict[chosen_user])
 
         if st.button('Cancel'):
             clean_session()
