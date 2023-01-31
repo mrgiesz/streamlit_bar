@@ -1,0 +1,5 @@
+# Database connection details
+username = 'username'
+password = 'password'
+host = 'sql_server_ip'
+database = 'database_name'
